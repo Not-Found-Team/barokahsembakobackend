@@ -4,6 +4,7 @@ const stockRouter = require("./router/stock");
 const barangMasukRouter = require('./router/barangMasuk')
 const barangKeluarRouter = require('./router/barangKeluar')
 const usersRouter = require('./router/user')
+const barangRejectRouter = require('./router/barangReject')
 const db = require("./model/bundleModel");
 
 const app = express();
@@ -21,6 +22,9 @@ app.use('/barangmasuk', barangMasukRouter)
 
 // barang keluar router
 app.use('/barangkeluar', barangKeluarRouter)
+
+// barang reject router
+app.use('/barangreject', barangRejectRouter)
 
 // users router
 app.use('/login', usersRouter)

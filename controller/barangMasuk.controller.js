@@ -1,5 +1,5 @@
-const { barangMasuk, stock } = require("../model/bundleModel");
-const { Op, Sequelize } = require("sequelize");
+const { barangMasuk, stock, barangReject } = require("../model/bundleModel");
+const { Op } = require("sequelize");
 const moment = require("moment");
 
 const findStock = async (req, res) => {
@@ -16,19 +16,40 @@ const findStock = async (req, res) => {
 
 exports.create = async (req, res) => {
   const idStock = await findStock(req, res);
+  let jumlah = 0
   const tanggal = moment(req.body.tanggal, "YYYY-MM-DD").format("YYYY-MM-DD");
+  const create = {
+    tanggal: tanggal,
+    jumlah: req.body.jumlahBarangMasuk,
+    keterangan: req.body.keterangan,
+    idStock: idStock.id_barang,
+  };
   if (idStock !== null) {
-    const create = {
-      tanggal: tanggal,
-      jumlah: req.body.jumlah,
-      keterangan: req.body.keterangan,
-      idStock: idStock.id_barang,
-    };
+    // create data barang masuk
     await barangMasuk
       .create(create)
       .then(async (created) => {
+        const dataBarangReject = {
+          jumlah: req.body.jumlahBarangReject || null,
+          keterangan: req.body.keteranganReject || null,
+          idBarangMasuk: created.id_barangMasuk,
+        };
+
+        jumlah = dataBarangReject.jumlah
+
+        if (jumlah !== null) {
+          // create data barang reject
+          await barangReject.create(dataBarangReject);
+          jumlah = idStock.jumlah + (create.jumlah - dataBarangReject.jumlah) 
+        } else if (jumlah === null) {
+          jumlah = idStock.jumlah + create.jumlah
+        }
+
+        // update jumlah on stock table
         await stock.update(
-          { jumlah: idStock.jumlah + create.jumlah },
+          {
+            jumlah: jumlah
+          },
           { where: { id_barang: create.idStock } }
         );
         res.status(200).json({
@@ -37,7 +58,7 @@ exports.create = async (req, res) => {
         });
       })
       .catch((err) => {
-        res.status(400).send({ massage: "insert data error" });
+        res.status(400).send({ massage: err });
       });
   } else {
     res
@@ -61,14 +82,14 @@ exports.findAll = async (req, res) => {
 // find all data for searching data barang masuk
 exports.search = async (req, res) => {
   const search = req.query.search || "";
-  const jumlah = Number(search)
-  const startDate = new Date(req.body.startDate)
-  const endDate = new Date(req.body.endDate)
+  const jumlah = Number(search) || null;
+  const startDate = new Date(req.body.startDate);
+  const endDate = new Date(req.body.endDate);
 
   await barangMasuk
     .findAll({
       where: {
-        [Op.or]: [          
+        [Op.or]: [
           // {
           //   tanggal: {
           //     [Op.like]: Sequelize.literal(`"%${tanggal}%"`),
@@ -76,16 +97,13 @@ exports.search = async (req, res) => {
           // },
           {
             tanggal: {
-              [Op.between]: [
-                startDate,
-                endDate
-              ],
+              [Op.between]: [startDate, endDate],
             },
           },
           // Sequelize.literal(`tanggal LIKE "%${tanggal}%"`),
           // Sequelize.literal(`tanggal BETWEEN "${startDate}" AND "${endDate}"`),
           {
-            jumlah: jumlah
+            jumlah: jumlah,
           },
           {
             "$Stock.nama_barang$": {
@@ -188,12 +206,19 @@ exports.delete = async (req, res) => {
       where: { id_barang: idStock },
     })
     .then((res) => (res ? res : {}));
+  const { jumlah: jumlahReject } = await barangReject
+    .findOne({
+      where: {
+        idBarangMasuk: id,
+      },
+    })
+    .then((res) => (res ? res : {}));
   await barangMasuk
     .destroy({ where: { id_barangMasuk: id } })
     .then(async (deleted) => {
       if (deleted) {
         await stock.update(
-          { jumlah: jumlahStock - jumlahBarangMasuk },
+          { jumlah: jumlahStock - (jumlahBarangMasuk - jumlahReject) },
           { where: { id_barang: idStock } }
         );
         res.status(200).json("delete data success");

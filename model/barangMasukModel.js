@@ -4,11 +4,11 @@ module.exports = (sequelize, DataTypes) => {
             type: DataTypes.INTEGER,
             autoIncrement: true,
             primaryKey: true,
-            allowNUll: false
+            allowNull: false
         },
         jumlah: {
             type: DataTypes.INTEGER,
-            allowNULL: false
+            allowNull: false
         },
         tanggal: {
             type: DataTypes.DATEONLY,

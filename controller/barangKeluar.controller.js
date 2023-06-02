@@ -2,6 +2,7 @@ const { barangKeluar, stock } = require("../model/bundleModel");
 const { Op, Sequelize } = require("sequelize");
 const moment = require("moment");
 
+
 // function for get data on stock table based on nama barnag and merk
 const stockData = async (req, res) => {
   const data = await stock
@@ -80,20 +81,21 @@ exports.findAll = async (req, res) => {
 
 // searching function
 exports.search = async (req, res) => {
-  // input from user
-  // use that input to search data on table
-  // searching function
   const search = req.query.search || "";
-  const tanggal = moment(req.body.tanggal, "YYYY-MM-DD").format("YYYY-MM-DD");
-  const startDate = moment(req.body.startDate, "YYYY-MM-DD").format(
-    "YYYY-MM-DD"
-  );
-  const endDate = moment(req.body.endDate, "YYYY-MM-DD").format("YYYY-MM-DD");
+  const jumlah = Number(req.body.jumlah) || null
+  // const tanggal = moment(req.body.tanggal, "YYYY-MM-DD").format("YYYY-MM-DD");
+  // const startDate = moment(req.body.startDate, "YYYY-MM-DD").format(
+  //   "YYYY-MM-DD"
+  // );
+  // const endDate = moment(req.body.endDate, "YYYY-MM-DD").format("YYYY-MM-DD");
   await barangKeluar.findAll({
     where: {
       [Op.or]: [
-        Sequelize.literal(`tanggal LIKE "%${tanggal}%"`),
-        Sequelize.literal(`tanggal BETWEEN "${startDate}" AND "${endDate}"`),
+        // Sequelize.literal(`tanggal LIKE "%${tanggal}%"`),
+        // Sequelize.literal(`tanggal BETWEEN "${startDate}" AND "${endDate}"`),
+        {
+          jumlah: jumlah
+        },
         {
           "$Stock.nama_barang$": {
             [Op.like]: `%${search}%`,
