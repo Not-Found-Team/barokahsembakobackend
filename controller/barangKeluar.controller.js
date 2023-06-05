@@ -1,7 +1,18 @@
-const { barangKeluar, stock } = require("../model/bundleModel");
-const { Op, Sequelize } = require("sequelize");
+const { barangKeluar, stock, sequelize } = require("../model/bundleModel");
+const { Op, Sequelize, QueryTypes } = require("sequelize");
 const moment = require("moment");
 
+function formatDate(date) {
+  var d = new Date(date),
+    month = "" + (d.getMonth() + 1),
+    day = "" + d.getDate(),
+    year = d.getFullYear();
+
+  if (month.length < 2) month = "0" + month;
+  if (day.length < 2) day = "0" + day;
+
+  return [year, month, day].join("-");
+}
 
 // function for get data on stock table based on nama barnag and merk
 const stockData = async (req, res) => {
@@ -63,13 +74,15 @@ exports.create = async (req, res) => {
 
 // get all data
 exports.findAll = async (req, res) => {
-  await barangKeluar.findAll({
-    include: {
-      model: stock,
-      as: "Stock",
-      required: false
+  const query = `SELECT stock.nama_barang, stock.merk, stock.satuan, barangkeluar.jumlah, tanggal, keterangan 
+                FROM barangkeluar LEFT OUTER JOIN stock ON barangkeluar.idStock = stock.id_barang 
+                ORDER BY tanggal ASC`
+  await sequelize.query(
+    query, 
+    {
+      type: QueryTypes.SELECT
     }
-  })
+  )
   .then(data => {
     if (data) {
       res.status(200).json(data)
@@ -82,51 +95,37 @@ exports.findAll = async (req, res) => {
 // searching function
 exports.search = async (req, res) => {
   const search = req.query.search || "";
-  const jumlah = Number(req.body.jumlah) || null
-  // const tanggal = moment(req.body.tanggal, "YYYY-MM-DD").format("YYYY-MM-DD");
-  // const startDate = moment(req.body.startDate, "YYYY-MM-DD").format(
-  //   "YYYY-MM-DD"
-  // );
-  // const endDate = moment(req.body.endDate, "YYYY-MM-DD").format("YYYY-MM-DD");
-  await barangKeluar.findAll({
-    where: {
-      [Op.or]: [
-        // Sequelize.literal(`tanggal LIKE "%${tanggal}%"`),
-        // Sequelize.literal(`tanggal BETWEEN "${startDate}" AND "${endDate}"`),
-        {
-          jumlah: jumlah
-        },
-        {
-          "$Stock.nama_barang$": {
-            [Op.like]: `%${search}%`,
-          },
-        },
-        {
-          "$Stock.jenis_barang$": {
-            [Op.like]: `%${search}%`,
-          },
-        },
-        {
-          "$Stock.merk$": {
-            [Op.like]: `%${search}%`,
-          },
-        },
-      ],
-    },
-    include: [
+  const jumlah = Number(search) || null;
+  const startDate = formatDate(req.query.startDate);
+  const endDate = formatDate(req.query.endDate);
+  const tanggal = formatDate(req.query.tanggal);
+
+  const query = `SELECT stock.nama_barang, stock.merk, stock.satuan, barangkeluar.jumlah, tanggal, keterangan 
+                FROM barangkeluar LEFT OUTER JOIN stock ON barangkeluar.idStock = stock.id_barang 
+                WHERE stock.nama_barang LIKE '%${search}%' OR stock.merk LIKE '%${search}%' 
+                OR satuan LIKE '%${search}%' OR tanggal= :tanggal OR tanggal BETWEEN :startDate AND :endDate OR 
+                barangkeluar.jumlah= :jumlah OR keterangan LIKE '%${search}%' ORDER BY tanggal ASC`;
+  await sequelize
+    .query(
+      query,
       {
-        model: stock,
-        as: "Stock"
+        replacements: {
+          tanggal: tanggal,
+          startDate: startDate,
+          endDate: endDate,
+          jumlah: jumlah,
+        },
+        type: QueryTypes.SELECT,
       }
-    ]
-  })
-  .then(data => {
-    if (data) {
-      res.status(200).json(data)
-    } else {      
-      res.status(400).json("data not found")
-    }
-  });
+    )
+    .then((data) => {
+      if (data) {
+        res.status(200).json(data);
+      } else {
+        res.status(400).json("data not found");
+      }
+    })
+    .catch((err) => res.json(err));
 };
 
 // update data

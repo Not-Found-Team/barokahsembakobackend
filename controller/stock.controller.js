@@ -14,40 +14,40 @@ exports.create = async (req, res) => {
     satuan: req.body.satuan,
   };
 
-  await stock
-    .findOne({
-      where: {
-        [Op.and]: [{ nama_barang: data.nama_barang }, { merk: data.merk }],
-      },
-    })
-    .then(async (dataStock) => {
-      if (dataStock !== null) {
-        res.json("Stock already added");
-      } else {
-        await stock.create(data).then(async (created) => {
-          const insertBarangMasuk = {
-            tanggal: tanggal,
-            jumlah: data.jumlah,
-            keterangan: req.body.keterangan,
-            idStock: created.id_barang,
-          };
-          await barangMasuk.create(insertBarangMasuk);
-          res.status(200).json({
-            massage: "Insert data success",
-            data: {
-              stock: data,
-              barangMasuk: insertBarangMasuk,
-            },
-          });
-        });
-      }
+  const dataStock = await stock.findOne({
+    where: {
+      [Op.and]: [{ nama_barang: data.nama_barang }, { merk: data.merk }],
+    },
+  });
+
+  if (dataStock !== null) {
+    res.json(
+      "Stock sudah ada, gunakan tombol Edit untuk merubah informasi stock!"
+    );
+    console.log(dataStock);
+  } else {
+    await stock.create(data).then(async (created) => {
+      const insertBarangMasuk = {
+        tanggal: tanggal,
+        jumlah: data.jumlah,
+        keterangan: req.body.keterangan,
+        idStock: created.id_barang,
+      };
+      await barangMasuk.create(insertBarangMasuk);
+      res.status(200).json({
+        massage: "Insert data success",
+        data: {
+          stock: data,
+          barangMasuk: insertBarangMasuk,
+        },
+      });
     });
+  }
 };
 
 // get all data stock
 exports.findAll = async (req, res) => {
-  await stock.findAll();
-  res.status(200).json(allStock);
+  await stock.findAll().then((response) => res.status(200).json(response));
 };
 
 // get specific data stock
@@ -60,7 +60,7 @@ exports.findOne = async (req, res) => {
 // search data stock
 exports.search = async (req, res) => {
   const search = req.query.search_query || "";
-  const jumlah = Number(req.body.jumlah) || null
+  const jumlah = Number(req.body.jumlah) || null;
   await stock
     .findAll({
       where: {
