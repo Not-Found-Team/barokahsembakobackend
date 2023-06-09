@@ -184,9 +184,7 @@ exports.update = async (req, res) => {
       if (updated) {
         let {jumlah: jumlahNewStock} = await findStock(req, res)
         
-        console.log(id_barang, jumlahNewStock);
-
-        if (id_barang !== prevStockId) {
+        if (id_barang === prevStockId) {
           if (jumlah !== null) {
             if (updateData.jumlah === jumlah) {
               console.log("1")
@@ -215,21 +213,36 @@ exports.update = async (req, res) => {
             console.log("jumlah stock data not found");
           }
         } else {
+          console.log(jumlahNewStock)
           if (reject === null) {
             jumlahReject = 0;
           } else {
             jumlahReject = reject.jumlah;
           }
-          await stock.update(
-            {
-              jumlah: prevJumlahStock - (jumlah - jumlahReject),
-            },
-            {
-              where: {
-                id_barang: prevStockId,
-              },
+
+          await stock.update({
+            jumlah: jumlahNewStock + (updateData.jumlah - jumlahReject)
+          }, {
+            where: {
+              id_barang: id_barang
             }
-          );
+          })
+          .then(async u => {
+            console.log("new stock updated")
+            await stock.update(
+              {
+                jumlah: prevJumlahStock - (jumlah - jumlahReject),
+              },
+              {
+                where: {
+                  id_barang: prevStockId,
+                },
+              }
+            ).then(u => {
+              console.log("prev stock updated")
+            });
+          })
+
         }
 
         res.status(200).json("update data success");
@@ -258,12 +271,23 @@ exports.delete = async (req, res) => {
       },
     })
     .then((res) => (res ? res : {}));
-  await barangMasuk
+
+    console.log(idStock, jumlahBarangMasuk, jumlahStock, jumlahReject)
+    
+    await barangMasuk
     .destroy({ where: { id_barangMasuk: id } })
     .then(async (deleted) => {
       if (deleted) {
+        let reject = 0
+
+        if (jumlahReject === undefined) {
+          reject = 0
+        } else {
+          reject = jumlahReject
+        }
+        console.log(idStock, jumlahBarangMasuk, jumlahStock, reject)
         await stock.update(
-          { jumlah: jumlahStock - (jumlahBarangMasuk - jumlahReject) },
+          { jumlah: jumlahStock - (jumlahBarangMasuk - reject) },
           { where: { id_barang: idStock } }
         );
         res.status(200).json("delete data success");
