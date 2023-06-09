@@ -5,7 +5,7 @@ const stock = require ('../controller/stock.controller')
 // get method
 router.get('/', stock.findAll)
 router.get('/search', stock.search)
-router.get('/:id', stock.findOne)
+router.get('/testing', stock.findOne)
 
 // post method
 router.post('/', stock.create)

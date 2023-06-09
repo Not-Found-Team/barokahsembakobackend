@@ -44,7 +44,7 @@ exports.findAll = async (req, res) => {
     {
       type: QueryTypes.SELECT
     }
-  )
+  ) // test
     .then((response) => res.status(200).json(response))
     .catch(err => res.json(err));
 };

@@ -34,7 +34,7 @@ exports.create = async (req, res) => {
   if (id_barang !== null) {
     const create = {
       tanggal: tanggal,
-      jumlah: req.body.jumlah,
+      jumlah: Number(req.body.jumlah),
       satuan: req.body.satuan,
       keterangan: req.body.keterangan,
       idStock: id_barang,
@@ -74,7 +74,7 @@ exports.create = async (req, res) => {
 
 // get all data
 exports.findAll = async (req, res) => {
-  const query = `SELECT stock.nama_barang, stock.merk, stock.satuan, barangkeluar.jumlah, tanggal, keterangan 
+  const query = `SELECT stock.nama_barang, stock.merk, stock.satuan, barangkeluar.id_barangKeluar, barangkeluar.jumlah, tanggal, keterangan 
                 FROM barangkeluar LEFT OUTER JOIN stock ON barangkeluar.idStock = stock.id_barang 
                 ORDER BY tanggal ASC`
   await sequelize.query(
@@ -90,7 +90,7 @@ exports.findAll = async (req, res) => {
       res.status(400).json("data not found")      
     }
   });
-};
+};  
 
 // searching function
 exports.search = async (req, res) => {
@@ -100,7 +100,7 @@ exports.search = async (req, res) => {
   const endDate = formatDate(req.query.endDate);
   const tanggal = formatDate(req.query.tanggal);
 
-  const query = `SELECT stock.nama_barang, stock.merk, stock.satuan, barangkeluar.jumlah, tanggal, keterangan 
+  const query = `SELECT stock.nama_barang, stock.merk, stock.satuan, barangkeluar.id_barangKeluar, barangkeluar.jumlah, tanggal, keterangan 
                 FROM barangkeluar LEFT OUTER JOIN stock ON barangkeluar.idStock = stock.id_barang 
                 WHERE stock.nama_barang LIKE '%${search}%' OR stock.merk LIKE '%${search}%' 
                 OR satuan LIKE '%${search}%' OR tanggal= :tanggal OR tanggal BETWEEN :startDate AND :endDate OR 

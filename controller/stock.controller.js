@@ -24,21 +24,12 @@ exports.create = async (req, res) => {
     res.json(
       "Stock sudah ada, gunakan tombol Edit untuk merubah informasi stock!"
     );
-    console.log(dataStock);
   } else {
     await stock.create(data).then(async (created) => {
-      const insertBarangMasuk = {
-        tanggal: tanggal,
-        jumlah: data.jumlah,
-        keterangan: req.body.keterangan,
-        idStock: created.id_barang,
-      };
-      await barangMasuk.create(insertBarangMasuk);
       res.status(200).json({
         massage: "Insert data success",
         data: {
           stock: data,
-          barangMasuk: insertBarangMasuk,
         },
       });
     });
@@ -53,7 +44,12 @@ exports.findAll = async (req, res) => {
 // get specific data stock
 exports.findOne = async (req, res) => {
   const id = req.params.id;
-  const specificStock = await stock.findOne({ where: { id_barang: id } });
+  const specificStock = await stock.findOne({
+    where: {
+        nama_barang: req.body.nama_barang,
+        merk: req.body.merk
+    },
+  });
   res.json(specificStock);
 };
 
@@ -92,8 +88,9 @@ exports.update = async (req, res) => {
     jumlah: req.body.jumlah,
     satuan: req.body.satuan,
   };
-  await stock.update(data, { where: { id_barang: id } });
-  res.json("Update data success");
+  await stock.update(data, { where: { id_barang: id } }).then((response) => {
+    res.json("Update data Success");
+  });
 };
 
 // delete data stock
