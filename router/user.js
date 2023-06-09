@@ -3,9 +3,9 @@ const router = express.Router()
 const users = require('../controller/user.controller')
 
 // create
-router.post('/', users.create)
+router.post('/create', users.create)
 
 // login
-router.get('/', users.findOne)
+router.post('/', users.findOne)
 
 module.exports = router

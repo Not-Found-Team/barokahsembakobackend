@@ -1,7 +1,10 @@
+require('dotenv').config();
+const { Uri } = require('../Uri');
+
 module.exports = {
-    HOST: 'localhost',
-    USERNAME: 'root',
-    PASSWORD: '',
-    DATABASE: 'gudang_barokah',
-    dialect: 'mysql'
+    HOST: Uri.rootUri,
+    USERNAME: Uri.dbUsername,
+    PASSWORD: Uri.dbPassword,
+    DATABASE: Uri.dbName,
+    dialect: Uri.dbDialect
 }
