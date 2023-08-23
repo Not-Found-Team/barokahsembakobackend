@@ -15,22 +15,22 @@ function formatDate(date) {
 }
 
 // function for get data on stock table based on nama barnag and merk
-const stockData = async (req, res) => {
-  const data = await stock
-    .findOne({
-      where: {
-        nama_barang: req.body.nama_barang,
-        merk: req.body.merk,
-      },
-    })
-    .then((res) => res);
-  return data;
+const findStock = async (req, res) => {
+  const stockData = await stock.findOne({
+    where: {
+      [Op.and]: [
+        { nama_barang: req.body.nama_barang },
+        { merk: req.body.merk },
+      ],
+    },
+  });
+  return stockData;
 };
 
 // create data
 exports.create = async (req, res) => {
   const tanggal = moment(req.body.tanggal, "YYYY-MM-DD").format("YYYY-MM-DD");
-  const { id_barang, jumlah } = await stockData(req, res);
+  const { id_barang, jumlah } = await findStock(req, res);
   if (id_barang !== null) {
     const create = {
       tanggal: tanggal,
@@ -128,59 +128,147 @@ exports.search = async (req, res) => {
     .catch((err) => res.json(err));
 };
 
-// update data
-exports.update = async (req, res) => {
-  const id = req.params.id
-  const tanggal = moment(req.body.tanggal, "YYYY-MM-DD").format("YYYY-MM-DD")
-  const update = {
-    jumlah: req.body.jumlah,
-    tanggal: tanggal,
-    keterangan: req.body.keterangan
-  }
-  const { idStock, jumlah: jumlahBarangKeluar} = await barangKeluar.findOne({
-    where: {
-      id_barangKeluar: id
-    }
-  }).then(data => data?data:{})
 
-  if (jumlahBarangKeluar !== null) {
-    let {jumlah: jumlahStock} = await stock.findOne({
-      where: {
-        id_barang: idStock
-      }
-    }).then(data => data?data:{})
-    
-    if (update.jumlah === jumlahBarangKeluar) {
-      jumlahStock = jumlahStock
-    } else if (update.jumlah > jumlahBarangKeluar) {
-      jumlahStock -= (update.jumlah - jumlahBarangKeluar)
-    } else if (update.jumlah < jumlahBarangKeluar) {
-      jumlahStock += (jumlahBarangKeluar - update.jumlah)
-    }
-    await barangKeluar.update(update, {
-      where: {
-        id_barangKeluar: id
-      }
-    }).then(async updated => {
-        await stock.update({
-          jumlah: jumlahStock
-        }, {
-          where: {
-            id_barang: idStock
+exports.update = async (req, res) => {
+  const id = req.params.id;
+  const tanggal = moment(req.body.tanggal, "YYYY-MM-DD").format("YYYY-MM-DD");
+  let { id_barang } = await findStock(req, res);
+  const {
+    jumlah,
+    Stock: { id_barang: prevStockId, jumlah: prevJumlahStock },
+  } = await barangKeluar
+    .findOne({
+      where: { id_barangKeluar: id },
+      include: {
+        model: stock,
+        as: "Stock",
+      },
+    })
+    .then((res) => (res ? res : {}));
+  const updateData = {
+    tanggal: tanggal,
+    jumlah: Number(req.body.jumlah),
+    keterangan: req.body.keterangan,
+    idStock: id_barang,
+  };
+
+  await barangKeluar
+    .update(updateData, { where: { id_barangKeluar: id } })
+    .then(async (updated) => {
+      if (updated) {
+        let {jumlah: jumlahNewStock} = await findStock(req, res)
+        
+        if (id_barang === prevStockId) {
+          if (jumlah !== null) {
+            if (updateData.jumlah === jumlah) {
+              jumlahNewStock = jumlahNewStock;
+            } else if (updateData.jumlah < jumlah) {
+              jumlahNewStock += jumlah - updateData.jumlah;
+            } else if (updateData.jumlah > jumlah) {
+              jumlahNewStock -= updateData.jumlah - jumlah;
+            }
+
+            await stock
+              .update(
+                { jumlah: jumlahNewStock },
+                { where: { id_barang: id_barang } }
+              )
+              .then((updated) => {
+                if (updated) {
+                  console.log("update stock succes");
+                } else {
+                  console.log("update stock error");
+                }
+              });
+          } else {
+            console.log("jumlah stock data not found");
           }
-        }).then(updated => {
-          console.log("update stock success")
-        }).catch(err => {
-          console.log(err)
-        })
-        res.status(200).json("update data succes")
-      }).catch(err => {
-        res.status(400).json(err)
-      })
-  } else {
-    console.log("data barangKeluar not found")
-  }
+        } else {
+          await stock.update({
+            jumlah: jumlahNewStock - updateData.jumlah
+          }, {
+            where: {
+              id_barang: id_barang
+            }
+          })
+          .then(async u => {
+            console.log("new stock updated")
+            await stock.update(
+              {
+                jumlah: prevJumlahStock + jumlah,
+              },
+              {
+                where: {
+                  id_barang: prevStockId,
+                },
+              }
+            ).then(u => {
+              console.log("prev stock updated")
+            });
+          })
+
+        }
+
+        res.status(200).json("update data success");
+      } else {
+        res.status(400).json("update data error");
+      }
+    });
 };
+
+// update data
+// exports.update = async (req, res) => {
+//   const id = req.params.id
+//   const tanggal = moment(req.body.tanggal, "YYYY-MM-DD").format("YYYY-MM-DD")
+//   const update = {
+//     jumlah: req.body.jumlah,
+//     tanggal: tanggal,
+//     keterangan: req.body.keterangan
+//   }
+//   const { idStock, jumlah: jumlahBarangKeluar} = await barangKeluar.findOne({
+//     where: {
+//       id_barangKeluar: id
+//     }
+//   }).then(data => data?data:{})
+
+//   if (jumlahBarangKeluar !== null) {
+//     let {jumlah: jumlahStock} = await stock.findOne({
+//       where: {
+//         id_barang: idStock
+//       }
+//     }).then(data => data?data:{})
+    
+//     if (update.jumlah === jumlahBarangKeluar) {
+//       jumlahStock = jumlahStock
+//     } else if (update.jumlah > jumlahBarangKeluar) {
+//       jumlahStock -= (update.jumlah - jumlahBarangKeluar)
+//     } else if (update.jumlah < jumlahBarangKeluar) {
+//       jumlahStock += (jumlahBarangKeluar - update.jumlah)
+//     }
+//     await barangKeluar.update(update, {
+//       where: {
+//         id_barangKeluar: id
+//       }
+//     }).then(async updated => {
+//         await stock.update({
+//           jumlah: jumlahStock
+//         }, {
+//           where: {
+//             id_barang: idStock
+//           }
+//         }).then(updated => {
+//           console.log("update stock success")
+//         }).catch(err => {
+//           console.log(err)
+//         })
+//         res.status(200).json("update data succes")
+//       }).catch(err => {
+//         res.status(400).json(err)
+//       })
+//   } else {
+//     console.log("data barangKeluar not found")
+//   }
+// };
 
 // delete data
 exports.delete = async (req, res) => {

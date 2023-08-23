@@ -36,7 +36,7 @@ const findOne = async (req, res, id) => {
 };
 
 exports.findAll = async (req, res) => {
-  const query = `SELECT stock.nama_barang, stock.merk, stock.satuan, barangreject.jumlah, barangmasuk.tanggal, barangreject.keterangan 
+  const query = `SELECT stock.nama_barang, stock.merk, stock.satuan, barangreject.idBarangReject, barangreject.jumlah, barangmasuk.tanggal, barangreject.keterangan 
                 FROM barangreject LEFT OUTER JOIN barangmasuk ON barangreject.idBarangMasuk = barangmasuk.id_barangMasuk 
                 LEFT OUTER JOIN stock ON barangmasuk.idStock = stock.id_barang ORDER BY tanggal ASC `
   await sequelize.query(

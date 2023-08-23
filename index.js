@@ -6,9 +6,13 @@ const barangKeluarRouter = require('./router/barangKeluar')
 const usersRouter = require('./router/user')
 const barangRejectRouter = require('./router/barangReject')
 const db = require("./model/bundleModel");
+const { Uri } = require("./Uri");
+const bcrypt = require("bcrypt");
+require('dotenv').config();
+
 
 const app = express();
-const port = 3001;
+const port = Uri.appPort;
 
 app.use(express.json());
 app.use(cors());

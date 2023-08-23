@@ -33,29 +33,35 @@ function formatDate(date) {
 
 exports.create = async (req, res) => {
   const idStock = await findStock(req, res);
-  console.log(typeof idStock.jumlah);
+  // console.log(typeof idStock.jumlah);
   let jumlah = 0;
   const tanggal = moment(req.body.tanggal, "YYYY-MM-DD").format("YYYY-MM-DD");
   const create = {
-    tanggal: tanggal,
+    nama_barang: req.body.nama_barang,
+    merk: req.body.merk,
+    satuan: req.body.satuan,
+    harga: req.body.harga,
+    jenis_barang: req.body.jenis_barang,
     jumlah: Number(req.body.jumlahBarangMasuk),
+    tanggal: tanggal,
     keterangan: req.body.keterangan,
-    idStock: idStock.id_barang,
+    idStock: null,
   };
   console;
-  if (idStock !== null) {
-    // create data barang masuk
-    await barangMasuk
-      .create(create)
-      .then(async (created) => {
-        const dataBarangReject = {
-          jumlah: Number(req.body.jumlahBarangReject) || null,
-          keterangan: req.body.keteranganReject || null,
-          idBarangMasuk: created.id_barangMasuk,
-        };
+  // if (idStock !== null) {
+  // create data barang masuk
+  await barangMasuk
+    .create(create)
+    .then(async (created) => {
+      const dataBarangReject = {
+        jumlah: Number(req.body.jumlahBarangReject) || null,
+        keterangan: req.body.keteranganReject || null,
+        idBarangMasuk: created.id_barangMasuk,
+      };
+      jumlah = dataBarangReject.jumlah;
 
-        jumlah = dataBarangReject.jumlah;
-
+      if (idStock !== null) {
+        console.log(idStock.jumlah, jumlah);
         if (jumlah !== null) {
           // create data barang reject
           await barangReject.create(dataBarangReject);
@@ -63,7 +69,6 @@ exports.create = async (req, res) => {
         } else if (jumlah === null) {
           jumlah = idStock.jumlah + create.jumlah;
         }
-        console.log(idStock.jumlah, jumlah);
 
         // update jumlah on stock table
         await stock.update(
@@ -72,21 +77,53 @@ exports.create = async (req, res) => {
           },
           { where: { id_barang: create.idStock } }
         );
-        console.log(created);
-        res.status(200).json({
-          massage: "Insert data success",
-          data: created,
-        });
-      })
-      .catch((err) => {
-        console.log(err);
-        res.status(400).send({ massage: err });
+      } else {
+        console.log("jumlah reject: ", jumlah);
+        await barangReject
+          .create(dataBarangReject)
+          .then(async (c) => {
+            await stock
+              .create({
+                nama_barang: create.nama_barang,
+                jenis_barang: create.jenis_barang,
+                merk: create.merk,
+                jumlah: create.jumlah - jumlah,
+                satuan: create.satuan,
+                harga: create.harga,
+              })
+              .then(async (stock) => {
+                await barangMasuk
+                  .update(
+                    {
+                      idStock: stock.id_barang,
+                    },
+                    {
+                      where: {
+                        id_barangMasuk: created.id_barangMasuk,
+                      },
+                    }
+                  )
+                  .then((u) => console.log("barangmasuk updated"));
+                console.log("stock created");
+              });
+          })
+          .then((c) => console.log("barang reject created"));
+      }
+      console.log(created);
+      res.status(200).json({
+        massage: "Insert data success",
+        data: created,
       });
-  } else {
-    res
-      .status(400)
-      .json(`Tidak ada barang dengan nama ${req.body.nama_barang}`);
-  }
+    })
+    .catch((err) => {
+      console.log(err);
+      res.status(400).send({ massage: err });
+    });
+  // } else {
+  // res
+  //   .status(400)
+  //   .json(`Tidak ada barang dengan nama ${req.body.nama_barang}`);
+  // }
 };
 
 // find all data for table barang masuk
@@ -153,8 +190,8 @@ exports.update = async (req, res) => {
   const id = req.params.id;
   const tanggal = moment(req.body.tanggal, "YYYY-MM-DD").format("YYYY-MM-DD");
   let jumlahReject = 0;
-  let { id_barang } = await findStock(req, res);
-  const {
+  let idStock = await findStock(req, res);
+  let {
     jumlah,
     Stock: { id_barang: prevStockId, jumlah: prevJumlahStock },
   } = await barangMasuk
@@ -174,69 +211,109 @@ exports.update = async (req, res) => {
   const updateData = {
     tanggal: tanggal,
     jumlah: Number(req.body.jumlahBarangMasuk),
+    jumlahBarangReject: Number(req.body.jumlahBarangReject),
     keterangan: req.body.keterangan,
-    idStock: id_barang,
+    idStock: idStock?.id_barang,
   };
+  
+  if (reject === null) {
+    jumlahReject = 0;
+  } else {
+    // await barangReject.create()    
+    jumlahReject = reject.jumlah;
+  }
 
-  await barangMasuk
-    .update(updateData, { where: { id_barangMasuk: id } })
-    .then(async (updated) => {
-      if (updated) {
-        let {jumlah: jumlahNewStock} = await findStock(req, res)
-        
-        console.log(id_barang, jumlahNewStock);
+  if (idStock === null) {
+    const {nama_barang, merk, satuan, jumlah} = req.body
+    if (updateData.jumlah > jumlah) {
+      prevJumlahStock += (updateData.jumlah - jumlah) - jumlahReject
+    } else if (updateData.jumlah < jumlah) {
+      prevJumlahStock -= (jumlah - updateData.jumlah) - jumlahReject
+    }
 
-        if (id_barang !== prevStockId) {
-          if (jumlah !== null) {
-            if (updateData.jumlah === jumlah) {
-              console.log("1")
-              jumlahNewStock = jumlahNewStock;
-            } else if (updateData.jumlah < jumlah) {
-              console.log("2")
-              jumlahNewStock -= jumlah - updateData.jumlah;
-            } else if (updateData.jumlah > jumlah) {
-              console.log("3")
-              jumlahNewStock += updateData.jumlah - jumlah;
-            }
-
-            await stock
-              .update(
-                { jumlah: jumlahNewStock },
-                { where: { id_barang: id_barang } }
-              )
-              .then((updated) => {
-                if (updated) {
-                  console.log("update stock succes");
-                } else {
-                  console.log("update stock error");
-                }
-              });
-          } else {
-            console.log("jumlah stock data not found");
-          }
-        } else {
-          if (reject === null) {
-            jumlahReject = 0;
-          } else {
-            jumlahReject = reject.jumlah;
-          }
-          await stock.update(
-            {
-              jumlah: prevJumlahStock - (jumlah - jumlahReject),
-            },
-            {
-              where: {
-                id_barang: prevStockId,
-              },
-            }
-          );
-        }
-
-        res.status(200).json("update data success");
-      } else {
-        res.status(400).json("update data error");
+    await stock.update({
+      nama_barang: nama_barang,
+      merk: merk,
+      satuan: satuan,
+      jumlah: prevJumlahStock,
+    }, {
+      where: {
+        id_barang: prevStockId
       }
-    });
+    })
+    .then(u => res.json("Update data success"))
+    // res.json("Stock tidak ada")
+
+  } else {
+    await barangMasuk
+      .update(updateData, { where: { id_barangMasuk: id } })
+      .then(async (updated) => {
+        if (updated) {
+
+          let { jumlah: jumlahNewStock } = await findStock(req, res);
+
+            if (idStock.id_barang === prevStockId) {
+              if (jumlah !== null) {
+                if (updateData.jumlah < jumlah) {
+                  jumlahNewStock -= (jumlah - updateData.jumlah) - jumlahReject
+                } else if (updateData.jumlah > jumlah) {
+                  jumlahNewStock += (updateData.jumlah - jumlah) - jumlahReject;
+                }
+    
+                await stock
+                  .update(
+                    { jumlah: jumlahNewStock },
+                    { where: { id_barang: idStock.id_barang } }
+                  )
+                  .then((updated) => {
+                    if (updated) {
+                      console.log("update stock succes");
+                    } else {
+                      console.log("update stock error");
+                    }
+                  });
+              } else {
+                console.log("jumlah stock data not found");
+              }
+            } else {
+    
+              await stock
+                .update(
+                  {
+                    jumlah: jumlahNewStock + (updateData.jumlah - jumlahReject),
+                  },
+                  {
+                    where: {
+                      id_barang: idStock.id_barang,
+                    },
+                  }
+                )
+                .then(async (u) => {
+                  console.log("new stock updated");
+                  await stock
+                    .update(
+                      {
+                        jumlah: prevJumlahStock - (jumlah - jumlahReject),
+                      },
+                      {
+                        where: {
+                          id_barang: prevStockId,
+                        },
+                      }
+                    )
+                    .then((u) => {
+                      console.log("prev stock updated");
+                    });
+                });
+            }
+  
+          res.status(200).json("update data success");
+        } else {
+          res.status(400).json("update data error");
+        }
+      });    
+  }
+
 };
 
 exports.delete = async (req, res) => {
@@ -258,12 +335,23 @@ exports.delete = async (req, res) => {
       },
     })
     .then((res) => (res ? res : {}));
+
+  console.log(idStock, jumlahBarangMasuk, jumlahStock, jumlahReject);
+
   await barangMasuk
     .destroy({ where: { id_barangMasuk: id } })
     .then(async (deleted) => {
       if (deleted) {
+        let reject = 0;
+
+        if (jumlahReject === undefined) {
+          reject = 0;
+        } else {
+          reject = jumlahReject;
+        }
+        console.log(idStock, jumlahBarangMasuk, jumlahStock, reject);
         await stock.update(
-          { jumlah: jumlahStock - (jumlahBarangMasuk - jumlahReject) },
+          { jumlah: jumlahStock - (jumlahBarangMasuk - reject) },
           { where: { id_barang: idStock } }
         );
         res.status(200).json("delete data success");
